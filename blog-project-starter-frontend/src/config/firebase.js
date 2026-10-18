@@ -1,9 +1,9 @@
+
 import { initializeApp, getApp, getApps } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import auth from "../config/firebase";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyAG15We8Pvlv-aEonuQNYF6M4cpEg_xSJ0",
+  apiKey: "YOUR_EXISTING_API_KEY",
   authDomain: "blog-app-student.firebaseapp.com",
   projectId: "blog-app-student",
   storageBucket: "blog-app-student.firebasestorage.app",
@@ -13,9 +13,11 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase only once
-const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+const app = getApps().length > 0
+  ? getApp()
+  : initializeApp(firebaseConfig);
 
 // Initialize Firebase Authentication
 const auth = getAuth(app);
 
-export default auth
+export default auth;
