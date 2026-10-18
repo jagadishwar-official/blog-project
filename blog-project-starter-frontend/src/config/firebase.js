@@ -3,13 +3,13 @@ import { initializeApp, getApp, getApps } from "firebase/app";
 import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
-  apiKey: "YOUR_EXISTING_API_KEY",
-  authDomain: "blog-app-student.firebaseapp.com",
-  projectId: "blog-app-student",
-  storageBucket: "blog-app-student.firebasestorage.app",
-  messagingSenderId: "658293312522",
-  appId: "1:658293312522:web:d2d7fd86ee9c2bf17d63f3",
-  measurementId: "G-Q1P382SKVH",
+  apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
+  authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.REACT_APP_FIREBASE_APP_ID,
+  measurementId: process.env.REACT_APP_FIREBASE_MEASUREMENT_ID,
 };
 
 // Initialize Firebase only once
