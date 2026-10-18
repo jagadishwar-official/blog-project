@@ -1,89 +1,126 @@
-import React, { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import axios from 'axios'
-import Footer from './common/Footer'
-import auth from '../config/firebase'
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import Footer from './common/Footer';
+import auth from '../config/firebase';
+
+const API_URL = process.env.REACT_APP_API_URL;
 
 function Blogs() {
-    const [blogs, setBlogs] = useState([])
-    const [newTitle, setNewTitle] = useState('')
-    const [newContent, setNewContent] = useState('')
-    const [showForm, setShowForm] = useState(false)
-    const [loading, setLoading] = useState(true)
-    const [error, setError] = useState('')
-    const [submitting, setSubmitting] = useState(false)
-    const [admin, setAdmin] = useState(false)
-    const navigate = useNavigate()
+    const [blogs, setBlogs] = useState([]);
+    const [newTitle, setNewTitle] = useState('');
+    const [newContent, setNewContent] = useState('');
+    const [showForm, setShowForm] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+    const [submitting, setSubmitting] = useState(false);
+    const [admin, setAdmin] = useState(false);
+    const navigate = useNavigate();
 
     useEffect(() => {
-        window.scrollTo(0, 0)
-        const unsubscribe = auth.onAuthStateChanged(function(user) {
+        window.scrollTo(0, 0);
+
+        const unsubscribe = auth.onAuthStateChanged((user) => {
             if (user) {
-                if (user.uid === "YFjKxmJ6tubmuzE8Jexu0lY9AI82") {
-                    setAdmin(true)
+                if (user.uid === 'YFjKxmJ6tubmuzE8Jexu0lY9AI82') {
+                    setAdmin(true);
                 } else {
-                    setAdmin(false)
-                    setShowForm(false)
+                    setAdmin(false);
+                    setShowForm(false);
                 }
             } else {
-                setAdmin(false)
-                setShowForm(false)
-                navigate('/login', { replace: true })
+                setAdmin(false);
+                setShowForm(false);
+                navigate('/login', { replace: true });
             }
-        })
-        axios.get(`${process.env.REACT_APP_API_URL}/api/blogs`).then((res) => {
-            setBlogs(res.data)
-            setError('')
-        }).catch(() => {
-            setError('Unable to load blogs. Please check whether the backend server is running.')
-        }).finally(() => setLoading(false))
-        return () => unsubscribe()
-    }, [navigate])
+        });
+
+        const loadBlogs = async () => {
+            try {
+                const response = await axios.get(`${API_URL}/api/blogs`);
+                setBlogs(response.data);
+                setError('');
+            } catch (err) {
+                console.error('Error fetching blogs:', err);
+                setError('Unable to load blogs. Please check your backend connection.');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        loadBlogs();
+        return () => unsubscribe();
+    }, [navigate]);
 
     const fetchBlogs = async () => {
         try {
-            const res = await axios.get('http://localhost:5000/api/blogs')
-            setBlogs(res.data)
-            setError('')
-        } catch {
-            setError('Unable to refresh blogs. Please try again.')
+            const response = await axios.get(`${API_URL}/api/blogs`);
+            setBlogs(response.data);
+            setError('');
+        } catch (err) {
+            console.error('Error refreshing blogs:', err);
+            setError('Unable to refresh blogs. Please try again.');
         }
-    }
+    };
 
-    const handleLike = async (blog_id) => {
+    const handleLike = async (blogId) => {
         try {
-            const response = await axios.patch(`http://localhost:5000/api/blogs/like/${blog_id}`)
-            if (response.status === 200) await fetchBlogs()
-        } catch (error) {
-            console.error('Error liking the blog post:', error)
-            setError('Could not like this blog. Please try again.')
+            const response = await axios.patch(`${API_URL}/api/blogs/like/${blogId}`);
+            if (response.status === 200) await fetchBlogs();
+        } catch (err) {
+            console.error('Error liking the blog post:', err);
+            setError('Could not like this blog. Please try again.');
         }
-    }
+    };
 
     const handleNewBlogSubmit = async (event) => {
-        event.preventDefault()
+        event.preventDefault();
+
         if (!admin) {
-            setError('Only the admin can create blogs.')
-            return
+            setError('Only the admin can create blogs.');
+            return;
         }
-        setSubmitting(true)
-        setError('')
-        const today = new Date()
-        const date = today.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
-        const likes = 0
+
+        setSubmitting(true);
+        setError('');
+
+        const today = new Date();
+        const date = today.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+        });
+
         try {
-            await axios.post('http://localhost:5000/api/blogs', { newTitle, date, newContent, likes })
-            await fetchBlogs()
-            setNewTitle('')
-            setNewContent('')
-            setShowForm(false)
-        } catch (error) {
-            console.error('Error creating blog:', error)
-            setError('Unable to publish your blog. Please check your backend and try again.')
+            const user = auth.currentUser;
+            if (!user) {
+                setError('Please log in before publishing a blog.');
+                return;
+            }
+
+            const token = await user.getIdToken();
+
+            await axios.post(
+                `${API_URL}/api/blogs`,
+                { newTitle, date, newContent, likes: 0 },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+
+            await fetchBlogs();
+            setNewTitle('');
+            setNewContent('');
+            setShowForm(false);
+        } catch (err) {
+            console.error('Error creating blog:', err);
+            setError(
+                err.response?.status === 401 || err.response?.status === 403
+                    ? 'You are not authorized to publish this blog.'
+                    : 'Unable to publish your blog. Please try again.'
+            );
         } finally {
-            setSubmitting(false)
+            setSubmitting(false);
         }
-    }
+    };
 
     return (
         <div className="min-h-screen w-full overflow-hidden bg-slate-50 text-slate-900">
@@ -119,7 +156,7 @@ function Blogs() {
                     <form onSubmit={handleNewBlogSubmit} className="space-y-5 p-4 sm:p-6 md:p-9">
                         <div><label htmlFor="blogTitle" className="mb-2 block text-sm font-bold text-slate-700">Blog Title</label><input id="blogTitle" type="text" placeholder="Give your article a great title..." value={newTitle} onChange={(e) => setNewTitle(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm outline-none transition placeholder:text-slate-400 focus:border-orange-400 focus:bg-white focus:ring-4 focus:ring-orange-100 sm:text-base" required /></div>
                         <div><label htmlFor="blogContent" className="mb-2 block text-sm font-bold text-slate-700">Your Content</label><textarea id="blogContent" placeholder="What would you like to share with readers?" value={newContent} onChange={(e) => setNewContent(e.target.value)} rows="7" className="w-full resize-y rounded-xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm leading-7 outline-none transition placeholder:text-slate-400 focus:border-orange-400 focus:bg-white focus:ring-4 focus:ring-orange-100 sm:text-base" required /></div>
-                        <div className="flex flex-col gap-3 min-[420px]:flex-row"><button type="submit" disabled={submitting} className="w-full cursor-pointer rounded-xl bg-slate-950 px-6 py-3.5 text-sm font-bold text-white transition hover:bg-orange-500 disabled:cursor-not-allowed disabled:opacity-60 min-[420px]:w-auto sm:px-7 sm:text-base">{submitting ? 'Publishing...' : 'Publish Blog →'}</button><button type="button" onClick={() => { setShowForm(false); setError('') }} className="w-full cursor-pointer rounded-xl border border-slate-200 px-6 py-3.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 min-[420px]:w-auto">Cancel</button></div>
+                        <div className="flex flex-col gap-3 min-[420px]:flex-row"><button type="submit" disabled={submitting} className="w-full cursor-pointer rounded-xl bg-slate-950 px-6 py-3.5 text-sm font-bold text-white transition hover:bg-orange-500 disabled:cursor-not-allowed disabled:opacity-60 min-[420px]:w-auto sm:px-7 sm:text-base">{submitting ? 'Publishing...' : 'Publish Blog →'}</button><button type="button" onClick={() => { setShowForm(false); setError(''); }} className="w-full cursor-pointer rounded-xl border border-slate-200 px-6 py-3.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 min-[420px]:w-auto">Cancel</button></div>
                     </form>
                 </div>}
 
@@ -130,7 +167,7 @@ function Blogs() {
                     <div className="inline-flex w-fit shrink-0 items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600"><span className="h-2 w-2 rounded-full bg-green-500"></span>{blogs.length} {blogs.length === 1 ? 'Article' : 'Articles'}</div>
                 </div>
 
-                {loading ? <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 lg:gap-7">{[1, 2, 3].map((item) => <div key={item} className="animate-pulse rounded-2xl border border-slate-200 bg-white p-5 sm:p-6"><div className="h-32 rounded-xl bg-slate-100 sm:h-36"></div><div className="mt-6 h-5 w-3/4 rounded bg-slate-100"></div><div className="mt-4 h-4 rounded bg-slate-100"></div><div className="mt-2 h-4 w-2/3 rounded bg-slate-100"></div></div>)}</div> : blogs.length === 0 && !error ? <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-12 text-center sm:rounded-3xl sm:px-6 sm:py-16"><div className="text-4xl sm:text-5xl">{"</>"}</div><h3 className="mt-5 text-xl font-extrabold sm:text-2xl">The first story starts here.</h3><p className="mt-3 text-sm leading-7 text-slate-500 sm:text-base">There are no articles yet. There are no published articles yet.</p>{admin && <button type="button" onClick={() => setShowForm(true)} className="mt-6 cursor-pointer rounded-xl bg-orange-500 px-6 py-3 font-bold text-white transition hover:bg-orange-600">Write the First Blog</button>}</div> : <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 lg:gap-7">
+                {loading ? <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 lg:gap-7">{[1, 2, 3].map((item) => <div key={item} className="animate-pulse rounded-2xl border border-slate-200 bg-white p-5 sm:p-6"><div className="h-32 rounded-xl bg-slate-100 sm:h-36"></div><div className="mt-6 h-5 w-3/4 rounded bg-slate-100"></div><div className="mt-4 h-4 rounded bg-slate-100"></div><div className="mt-2 h-4 w-2/3 rounded bg-slate-100"></div></div>)}</div> : blogs.length === 0 && !error ? <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-12 text-center sm:rounded-3xl sm:px-6 sm:py-16"><div className="text-4xl sm:text-5xl">{"</>"}</div><h3 className="mt-5 text-xl font-extrabold sm:text-2xl">The first story starts here.</h3><p className="mt-3 text-sm leading-7 text-slate-500 sm:text-base">There are no published articles yet.</p>{admin && <button type="button" onClick={() => setShowForm(true)} className="mt-6 cursor-pointer rounded-xl bg-orange-500 px-6 py-3 font-bold text-white transition hover:bg-orange-600">Write the First Blog</button>}</div> : <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 lg:gap-7">
                     {blogs.map((blog, index) => <article key={blog._id} className="group flex min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:border-orange-200 hover:shadow-xl hover:shadow-orange-100/50 sm:hover:-translate-y-2">
                         <div className={`relative flex h-36 items-center justify-center overflow-hidden sm:h-40 lg:h-44 ${index % 3 === 0 ? 'bg-gradient-to-br from-orange-100 to-amber-50' : index % 3 === 1 ? 'bg-gradient-to-br from-purple-100 to-indigo-50' : 'bg-gradient-to-br from-sky-100 to-cyan-50'}`}><div className="absolute -right-8 -top-10 h-36 w-36 rounded-full bg-white/50 transition duration-500 group-hover:scale-125"></div><div className="absolute -bottom-12 -left-6 h-32 w-32 rounded-full bg-white/40"></div><span className="relative text-5xl font-black text-slate-800/80 transition duration-300 group-hover:scale-110 sm:text-6xl">{"</>"}</span><span className="absolute left-3 top-3 rounded-full border border-white/70 bg-white/80 px-3 py-1.5 text-[10px] font-bold text-slate-700 backdrop-blur sm:left-5 sm:top-5 sm:text-xs">ARTICLE {String(index + 1).padStart(2, '0')}</span></div>
                         <div className="flex flex-1 flex-col p-4 sm:p-6 lg:p-7">
@@ -142,11 +179,12 @@ function Blogs() {
                     </article>)}
                 </div>}
 
-                <div className="mt-10 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 px-5 py-8 text-center text-white shadow-xl shadow-orange-200/50 sm:mt-16 sm:rounded-3xl sm:px-8 sm:py-12 md:px-12 md:py-14"><p className="text-xs font-bold uppercase tracking-[0.2em] text-orange-100 sm:text-sm">KEEP THE IDEAS FLOWING</p><h2 className="mt-3 text-2xl font-black sm:text-3xl md:text-4xl">Every developer has a story.</h2><p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-white/90 sm:text-base">Share what you're learning, celebrate what you've built, and help someone else take their next step.</p>{admin && <button type="button" onClick={() => { setShowForm(true); document.getElementById('latest-blogs')?.scrollIntoView({ behavior: 'smooth' }) }} className="mt-6 w-full cursor-pointer rounded-xl bg-white px-6 py-3.5 text-sm font-bold text-orange-600 shadow-md transition hover:-translate-y-1 hover:shadow-lg sm:mt-7 sm:w-auto sm:text-base">Write Your Story →</button>}</div>
+                <div className="mt-10 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 px-5 py-8 text-center text-white shadow-xl shadow-orange-200/50 sm:mt-16 sm:rounded-3xl sm:px-8 sm:py-12 md:px-12 md:py-14"><p className="text-xs font-bold uppercase tracking-[0.2em] text-orange-100 sm:text-sm">KEEP THE IDEAS FLOWING</p><h2 className="mt-3 text-2xl font-black sm:text-3xl md:text-4xl">Every developer has a story.</h2><p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-white/90 sm:text-base">Share what you're learning, celebrate what you've built, and help someone else take their next step.</p>{admin && <button type="button" onClick={() => { setShowForm(true); document.getElementById('latest-blogs')?.scrollIntoView({ behavior: 'smooth' }); }} className="mt-6 w-full cursor-pointer rounded-xl bg-white px-6 py-3.5 text-sm font-bold text-orange-600 shadow-md transition hover:-translate-y-1 hover:shadow-lg sm:mt-7 sm:w-auto sm:text-base">Write Your Story →</button>}</div>
             </section>
+
             <Footer />
         </div>
-    )
+    );
 }
 
 export default Blogs
